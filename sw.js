@@ -1,11 +1,11 @@
-const CACHE = "cash-pwa-v1";
+const CACHE = "cash-pwa-v2"; // поднимите версию, чтобы сбросить старый кэш
 const ASSETS = [
-  "/",
-  "/index.html",
-  "/app.js",
-  "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png",
+  "./",
+  "./index.html",
+  "./app.js",
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png",
 ];
 
 self.addEventListener("install", (e) => {
@@ -27,7 +27,7 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  // Запросы к API не кэшируем в SW — ими управляет логика приложения (localStorage).
+  // API не кэшируем
   if (
     e.request.url.includes("cbr-xml-daily.ru") ||
     e.request.url.includes("open.er-api.com") ||
@@ -35,5 +35,18 @@ self.addEventListener("fetch", (e) => {
   ) {
     return;
   }
-  e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
+
+  e.respondWith(
+    caches.match(e.request).then((r) => {
+      return (
+        r ||
+        fetch(e.request).catch(() => {
+          // Если это навигация и сети нет — вернём index.html
+          if (e.request.mode === "navigate") {
+            return caches.match("./index.html");
+          }
+        })
+      );
+    }),
+  );
 });
