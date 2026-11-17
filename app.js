@@ -1,4 +1,4 @@
-// app.js — логика конвертера, портированная с Python-скрипта
+// app.js — логика конвертера
 
 const CBR_URL = "https://www.cbr-xml-daily.ru/daily_json.js";
 const OPEN_ER_URL = "https://open.er-api.com/v6/latest/";
@@ -12,42 +12,44 @@ const output = document.getElementById("output");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 
-// ---------- Вывод в «консоль» ----------
+// ---------- Вывод в интерфейс ----------
 
-function print(text, cls = "") {
+function print(text, cls = "msg-info") {
+  if (!text) return;
   const line = document.createElement("div");
-  if (cls) line.className = cls;
+  line.className = `msg ${cls}`;
   line.textContent = text;
   output.appendChild(line);
   output.scrollTop = output.scrollHeight;
 }
 
 function printHelp() {
-  print(
-    `Конвертер валют на основе официальных курсов Банка России.
-
-Форматы:
-  100 USD to RUB
-  RUB to USD 5000
-  help   — эта справка
-  codes  — список доступных валют
-  clear  — очистить экран
-
-Валюты — трёхбуквенные коды ISO 4217. Регистр не важен.
-Дробные суммы: 100.50 или 100,50.
-
-Источники курсов (по приоритету):
-  1. ЦБ РФ (cbr-xml-daily.ru) — официальный курс, кэш до 15:00 МСК.
-  2. open.er-api.com — резервный.
-  3. currency-api — резервный.`,
-  );
+  const box = document.createElement("div");
+  box.className = "help-card";
+  box.innerHTML = `
+    <h3>📖 Справка</h3>
+    <p><b>Форматы ввода:</b><br>
+    <code>100 USD to RUB</code><br>
+    <code>RUB to USD 5000</code></p>
+    <p><b>Встроенные команды:</b><br>
+    <code>help</code> — эта справка<br>
+    <code>codes</code> — список доступных валют<br>
+    <code>clear</code> — очистить экран</p>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px;">
+      Валюты — коды ISO 4217 (USD, EUR, RUB и т.д.). Регистр не важен.<br>
+      Дробные суммы: 100.50 или 100,50.<br><br>
+      <b>Источники курсов:</b> 1. ЦБ РФ (основной, кэш до 15:00 МСК).<br>
+      2. open.er-api.com, 3. currency-api (резервные).
+    </p>
+  `;
+  output.appendChild(box);
+  output.scrollTop = output.scrollHeight;
 }
 
 // ---------- Время ЦБ ----------
 
 function lastPublicationTs() {
   const now = new Date();
-  // Переводим в МСК (UTC+3) для определения момента публикации
   const nowMsk = new Date(now.getTime() + 3 * 3600 * 1000);
   let candidate = new Date(
     Date.UTC(
@@ -59,15 +61,13 @@ function lastPublicationTs() {
       0,
     ),
   );
-  // candidate — это 15:00 МСК в UTC-представлении
   if (nowMsk < candidate) {
     candidate = new Date(candidate.getTime() - 24 * 3600 * 1000);
   }
-  // Переводим обратно в реальный UTC timestamp
   return candidate.getTime() - 3 * 3600 * 1000;
 }
 
-// ---------- Кэш (localStorage) ----------
+// ---------- Кэш ----------
 
 function loadCache() {
   try {
@@ -82,7 +82,7 @@ function saveCache(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
   } catch (e) {
-    print(`Предупреждение: не удалось сохранить кэш: ${e.message}`, "warn");
+    print(`Предупреждение: не удалось сохранить кэш: ${e.message}`, "msg-warn");
   }
 }
 
@@ -104,9 +104,7 @@ async function getJson(url) {
 async function fetchCbrData() {
   const data = await getJson(CBR_URL);
   if (!data.Valute || typeof data.Valute !== "object") {
-    throw new Error(
-      `В ответе ЦБ нет поля Valute. ${JSON.stringify(data).slice(0, 200)}`,
-    );
+    throw new Error(`В ответе ЦБ нет поля Valute.`);
   }
   const rates = { RUB: 1.0 };
   const names = { RUB: "Российский рубль" };
@@ -125,14 +123,9 @@ async function fetchCbrData() {
 async function fetchOpenErRate(from, to) {
   if (from === to) return 1.0;
   const data = await getJson(OPEN_ER_URL + from);
-  if (data.result !== "success") {
-    throw new Error(
-      `open.er-api.com вернул ошибку: ${JSON.stringify(data).slice(0, 200)}`,
-    );
-  }
-  if (!data.rates || data.rates[to] == null) {
-    throw new Error(`open.er-api.com не содержит ${to}.`);
-  }
+  if (data.result !== "success") throw new Error("API вернул ошибку");
+  if (!data.rates || data.rates[to] == null)
+    throw new Error(`Нет валюты ${to}`);
   return Number(data.rates[to]);
 }
 
@@ -141,9 +134,8 @@ async function fetchFallbackRate(from, to) {
   const base = from.toLowerCase();
   const data = await getJson(FALLBACK_URL + base + ".json");
   const block = data[base];
-  if (!block || block[to.toLowerCase()] == null) {
-    throw new Error(`currency-api не содержит ${to}.`);
-  }
+  if (!block || block[to.toLowerCase()] == null)
+    throw new Error(`Нет валюты ${to}`);
   return Number(block[to.toLowerCase()]);
 }
 
@@ -156,9 +148,8 @@ async function getCbrData(requireNames = false) {
     const ratesOk = cache.rates && cache.rates.RUB != null;
     const namesOk =
       !requireNames || (cache.names && Object.keys(cache.names).length > 0);
-    if (ratesOk && namesOk) {
+    if (ratesOk && namesOk)
       return { rates: cache.rates, names: cache.names || {} };
-    }
   }
   const { rates, names } = await fetchCbrData();
   saveCache({ timestamp: Date.now(), rates, names });
@@ -173,42 +164,33 @@ async function convert(amount, from, to) {
   try {
     const { rates } = await getCbrData(false);
     if (rates[from] == null)
-      throw new Error(`Валюта ${from} отсутствует в курсах ЦБ РФ.`);
-    if (rates[to] == null)
-      throw new Error(`Валюта ${to} отсутствует в курсах ЦБ РФ.`);
+      throw new Error(`Валюта ${from} отсутствует в ЦБ РФ.`);
+    if (rates[to] == null) throw new Error(`Валюта ${to} отсутствует в ЦБ РФ.`);
     return (amount * rates[from]) / rates[to];
   } catch (e) {
-    print(
-      `Предупреждение: ЦБ РФ недоступен (${e.message}), пробую fallback...`,
-      "warn",
-    );
+    print(`ЦБ РФ недоступен (${e.message}), пробую fallback...`, "msg-warn");
   }
 
   try {
     const rate = await fetchOpenErRate(from, to);
     print(
-      "Внимание: использован fallback open.er-api.com (курс может отличаться от официального ЦБ РФ).",
-      "warn",
+      "Использован fallback open.er-api.com (курс может отличаться от ЦБ РФ).",
+      "msg-warn",
     );
     return amount * rate;
   } catch (e) {
-    print(
-      `Предупреждение: open.er-api.com тоже не сработал (${e.message}), пробую второй fallback...`,
-      "warn",
-    );
+    print(`open.er-api.com не сработал, пробую второй fallback...`, "msg-warn");
   }
 
   try {
     const rate = await fetchFallbackRate(from, to);
     print(
-      "Внимание: использован fallback currency-api (курс может отличаться от официального ЦБ РФ).",
-      "warn",
+      "Использован fallback currency-api (курс может отличаться от ЦБ РФ).",
+      "msg-warn",
     );
     return amount * rate;
   } catch (e) {
-    throw new Error(
-      `Не удалось получить курс ни из ЦБ РФ, ни из fallback-источников. Последняя ошибка: ${e.message}`,
-    );
+    throw new Error(`Не удалось получить курс ни из одного источника.`);
   }
 }
 
@@ -220,12 +202,25 @@ async function printCodes() {
     const all = Array.from(
       new Set([...Object.keys(rates), ...Object.keys(names)]),
     ).sort();
-    print(`Доступные валюты (источник: ЦБ РФ, всего ${all.length}):\n`, "info");
+
+    // Создаем контейнер для списка
+    const div = document.createElement("div");
+    div.className = "msg msg-result";
+    div.style.fontFamily = "monospace";
+    div.style.whiteSpace = "pre";
+
+    let text = `Доступные валюты (${all.length}):\n\n`;
     for (const code of all) {
-      print(`  ${code}  ${names[code] || "(название недоступно)"}`);
+      text += `${code}  ${names[code] || "—"}\n`;
     }
+    div.textContent = text;
+    output.appendChild(div);
+    output.scrollTop = output.scrollHeight;
   } catch (e) {
-    print(`Ошибка: не удалось получить список валют: ${e.message}`, "err");
+    print(
+      `Ошибка: не удалось получить список валют: ${e.message}`,
+      "msg-error",
+    );
   }
 }
 
@@ -245,9 +240,7 @@ function parseConversion(text) {
     if (!(amount > 0)) throw new Error("Сумма должна быть положительной.");
     return { amount, from: m[1].toUpperCase(), to: m[2].toUpperCase() };
   }
-  throw new Error(
-    "Неверный формат. Поддерживаются: '100 USD to RUB' или 'RUB to USD 100'.",
-  );
+  throw new Error("Неверный формат. Попробуйте '100 USD to RUB'.");
 }
 
 // ---------- Обработка ввода ----------
@@ -256,6 +249,7 @@ async function handleLine(line) {
   line = line.trim();
   if (!line) return;
   const cmd = line.toLowerCase();
+
   if (cmd === "help") {
     printHelp();
     return;
@@ -272,9 +266,12 @@ async function handleLine(line) {
   try {
     const { amount, from, to } = parseConversion(line);
     const result = await convert(amount, from, to);
-    print(`${amount.toFixed(2)} ${from} = ${result.toFixed(2)} ${to}`);
+    print(
+      `${amount.toFixed(2)} ${from} = ${result.toFixed(2)} ${to}`,
+      "msg-result",
+    );
   } catch (e) {
-    print(`Ошибка: ${e.message}`, "err");
+    print(`Ошибка: ${e.message}`, "msg-error");
   }
 }
 
@@ -296,7 +293,6 @@ input.addEventListener("keydown", async (e) => {
 
 // Приветствие
 printHelp();
-print("", "info");
 input.focus();
 
 // Регистрация Service Worker

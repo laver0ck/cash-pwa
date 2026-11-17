@@ -10,97 +10,225 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
   <style>
     :root {
+      /* Приятная тёмная палитра (Slate) */
+      --bg-main: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-input: #0f172a;
+      --border-color: #334155;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --msg-result-bg: #1e293b;
+      --msg-error-bg: #451a1a;
+      --msg-error-text: #fca5a5;
+      --msg-warn-bg: #422006;
+      --msg-warn-text: #fcd34d;
+      --help-bg: #1e293b;
+      --help-border: #3b82f6;
+
       color-scheme: dark;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
       margin: 0;
       padding: 16px;
-      background: #0f172a;
-      color: #e2e8f0;
+      background: var(--bg-main);
+      color: var(--text-main);
       display: flex;
       flex-direction: column;
-      min-height: 100dvh;
-      box-sizing: border-box;
+      height: 100dvh;
     }
 
-    h1 {
+    header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    header h1 {
       font-size: 1.2rem;
-      margin: 0 0 12px;
+      margin: 0;
       font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    #output-container {
+      flex: 1;
+      background: var(--bg-panel);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     #output {
       flex: 1;
-      background: #1e293b;
-      border-radius: 12px;
-      padding: 14px;
+      padding: 16px;
       overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
+      scroll-behavior: smooth;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Стили для сообщений */
+    .msg {
       font-size: 0.95rem;
-      line-height: 1.5;
-      margin-bottom: 12px;
+      line-height: 1.4;
+      padding: 10px 14px;
+      border-radius: 12px;
+      word-break: break-word;
+      animation: fadeIn 0.2s ease-out;
     }
 
-    #output .err {
-      color: #f87171;
+    .msg-result {
+      background: var(--msg-result-bg);
+      border: 1px solid var(--border-color);
+      align-self: flex-start;
+      font-weight: 500;
+      font-size: 1.05rem;
     }
 
-    #output .warn {
-      color: #fbbf24;
+    .msg-error {
+      background: var(--msg-error-bg);
+      color: var(--msg-error-text);
+      align-self: flex-start;
     }
 
-    #output .info {
-      color: #94a3b8;
+    .msg-warn {
+      background: var(--msg-warn-bg);
+      color: var(--msg-warn-text);
+      font-size: 0.85rem;
     }
 
+    .msg-info {
+      color: var(--text-muted);
+      padding: 4px 0;
+      background: none;
+      font-size: 0.9rem;
+    }
+
+    /* Красивая карточка для справки */
+    .help-card {
+      background: var(--help-bg);
+      border-left: 4px solid var(--help-border);
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .help-card h3 {
+      margin: 0 0 10px 0;
+      font-size: 1rem;
+      color: #fff;
+    }
+
+    .help-card p {
+      margin: 0 0 8px 0;
+    }
+
+    .help-card code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #93c5fd;
+    }
+
+    .help-card ul {
+      padding-left: 20px;
+      margin: 0;
+    }
+
+    .help-card li {
+      margin-bottom: 4px;
+    }
+
+    /* Поле ввода */
     #input-row {
       display: flex;
-      gap: 8px;
+      gap: 10px;
+      background: var(--bg-panel);
+      padding: 8px;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
     #input {
       flex: 1;
-      padding: 14px 16px;
+      padding: 12px 16px;
       border-radius: 12px;
-      border: 1px solid #334155;
-      background: #1e293b;
-      color: #e2e8f0;
+      border: none;
+      background: transparent;
+      color: var(--text-main);
       font-size: 1rem;
       outline: none;
     }
 
-    #input:focus {
-      border-color: #38bdf8;
+    #input::placeholder {
+      color: var(--text-muted);
     }
 
     #send {
-      padding: 14px 20px;
-      border-radius: 12px;
+      padding: 0 20px;
+      border-radius: 10px;
       border: none;
-      background: #0ea5e9;
+      background: var(--accent);
       color: #fff;
-      font-size: 1rem;
-      font-weight: 600;
+      font-size: 1.2rem;
+      font-weight: bold;
       cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #send:hover {
+      background: var(--accent-hover);
     }
 
     #send:active {
-      background: #0284c7;
+      transform: scale(0.96);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   </style>
 </head>
 
 <body>
-  <h1>💱 Cash — курсы ЦБ РФ</h1>
-  <div id="output"></div>
+  <header>
+    <h1>💱 Cash — курсы ЦБ РФ</h1>
+  </header>
+
+  <div id="output-container">
+    <div id="output"></div>
+  </div>
+
   <div id="input-row">
     <input id="input" type="text" placeholder="100 USD to RUB или help" autocomplete="off" autocapitalize="off"
       spellcheck="false">
     <button id="send">→</button>
   </div>
+
   <script src="./app.js"></script>
 </body>
 

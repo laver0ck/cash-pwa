@@ -1,4 +1,4 @@
-const CACHE = "cash-pwa-v2"; // поднимите версию, чтобы сбросить старый кэш
+const CACHE = "cash-pwa-v3"; // ОБЯЗАТЕЛЬНО поднимаем версию!
 const ASSETS = [
   "./",
   "./index.html",
@@ -35,13 +35,11 @@ self.addEventListener("fetch", (e) => {
   ) {
     return;
   }
-
   e.respondWith(
     caches.match(e.request).then((r) => {
       return (
         r ||
         fetch(e.request).catch(() => {
-          // Если это навигация и сети нет — вернём index.html
           if (e.request.mode === "navigate") {
             return caches.match("./index.html");
           }
